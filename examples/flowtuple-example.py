@@ -2,15 +2,26 @@
 # count flowtuples via a perFlowtuple callback method
 
 import sys
-from pyavro_stardust import AvroFlowtupleReader
+from collections import defaultdict
+from pyavro_stardust import AvroFlowtupleReader, FlowtupleAttributeNum, \
+        FlowtupleAttributeStr
 
 counter = 0
+protocols = defaultdict(int)
 
 # Incredibly simple callback that simply increments a global counter for
-# each flowtuple
+# each flowtuple, as well as tracking the number of packets for each
+# IP protocols
 def perFlowtupleCallback(ft):
-    global counter
+    global counter, protocols
     counter += 1
+
+    proto = ft.getNumeric(FlowtupleAttributeNum.ATTR_FT_PROTOCOL)
+    pktcnt = ft.getNumeric(FlowtupleAttributeNum.ATTR_FT_PKT_COUNT)
+
+    # Note: use ft.getString(FlowtupleAttributeStr) for string attributes
+
+    protocols[proto] += pktcnt
 
 def run():
 
@@ -26,6 +37,8 @@ def run():
     ftreader.close()
 
     # Display our final result
-    print(counter)
+    print("Total flowtuples:", counter)
+    for k,v in protocols.items():
+        print("Protocol", k, ":", v, "packets")
 
 run()
