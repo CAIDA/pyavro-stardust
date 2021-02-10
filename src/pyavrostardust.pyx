@@ -8,7 +8,7 @@ cdef struct parsedString:
     int strlen
     unsigned char *start
 
-cdef enum FlowtupleAttributeNum:
+cpdef enum FlowtupleAttributeNum:
     ATTR_FT_TIMESTAMP = 0
     ATTR_FT_SRC_IP = 1
     ATTR_FT_DST_IP = 2
@@ -25,7 +25,7 @@ cdef enum FlowtupleAttributeNum:
     ATTR_FT_ISMASSCAN = 13
     ATTR_FT_ASN = 14
 
-cdef enum FlowtupleAttributeStr:
+cpdef enum FlowtupleAttributeStr:
     ATTR_FT_MAXMIND_CONTINENT = 0
     ATTR_FT_MAXMIND_COUNTRY = 1
     ATTR_FT_NETACQ_CONTINENT = 2
@@ -122,10 +122,10 @@ cdef class AvroFlowtuple:
 
         return offinc
 
-    cdef long getNumeric(self, int attrind):
+    cpdef long getNumeric(self, int attrind):
         return self.attributes_l[attrind]
 
-    cdef str getString(self, int attrind):
+    cpdef str getString(self, int attrind):
         return str(self.attributes_s[attrind])
 
     cpdef unsigned int getFlowtupleSizeInBuffer(self):
