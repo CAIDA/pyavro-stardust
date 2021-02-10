@@ -234,7 +234,7 @@ cdef class AvroFlowtupleReader:
             self._readAvroFileHeader()
 
     def close(self):
-        wandio.close(self.fh)
+        self.fh.close()
 
     cdef AvroFlowtuple _parseFlowtupleAvro(self, const unsigned char[:] buf,
             const int maxlen):
