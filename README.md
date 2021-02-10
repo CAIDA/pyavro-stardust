@@ -5,7 +5,7 @@ data files using python.
 
 Data formats that are currently supported are:
  * flowtuple data
- * RSDOS attack data
+ * RSDOS attack data --- coming soon
 
 ### Installation
 
