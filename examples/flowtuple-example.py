@@ -3,8 +3,8 @@
 
 import sys
 from collections import defaultdict
-from pyavro_stardust import AvroFlowtupleReader, FlowtupleAttributeNum, \
-        FlowtupleAttributeStr
+from pyavro_stardust.flowtuple import AvroFlowtupleReader, \
+        FlowtupleAttributeNum, FlowtupleAttributeStr
 
 counter = 0
 protocols = defaultdict(int)
@@ -16,10 +16,9 @@ def perFlowtupleCallback(ft):
     global counter, protocols
     counter += 1
 
-    proto = ft.getNumeric(FlowtupleAttributeNum.ATTR_FT_PROTOCOL)
-    pktcnt = ft.getNumeric(FlowtupleAttributeNum.ATTR_FT_PKT_COUNT)
-
-    # Note: use ft.getString(FlowtupleAttributeStr) for string attributes
+    a = ft.asDict()
+    proto = a["protocol"]
+    pktcnt = a["packets"]
 
     protocols[proto] += pktcnt
 

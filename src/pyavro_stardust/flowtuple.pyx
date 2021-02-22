@@ -2,34 +2,12 @@
 from libc.string cimport memcpy
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 import zlib, wandio
+cimport cython
 
 cdef struct parsedString:
     int toskip
     int strlen
     unsigned char *start
-
-cpdef enum FlowtupleAttributeNum:
-    ATTR_FT_TIMESTAMP = 0
-    ATTR_FT_SRC_IP = 1
-    ATTR_FT_DST_IP = 2
-    ATTR_FT_SRC_PORT = 3
-    ATTR_FT_DST_PORT = 4
-    ATTR_FT_PROTOCOL = 5
-    ATTR_FT_TTL = 6
-    ATTR_FT_TCP_FLAGS = 7
-    ATTR_FT_IP_LEN = 8
-    ATTR_FT_SYN_LEN = 9
-    ATTR_FT_SYNWIN_LEN = 10
-    ATTR_FT_PKT_COUNT = 11
-    ATTR_FT_ISSPOOFED = 12
-    ATTR_FT_ISMASSCAN = 13
-    ATTR_FT_ASN = 14
-
-cpdef enum FlowtupleAttributeStr:
-    ATTR_FT_MAXMIND_CONTINENT = 0
-    ATTR_FT_MAXMIND_COUNTRY = 1
-    ATTR_FT_NETACQ_CONTINENT = 2
-    ATTR_FT_NETACQ_COUNTRY = 3
 
 cdef (int, long) read_long(const unsigned char[:] buf, const int maxlen):
     cdef int longlen = 0
@@ -72,11 +50,8 @@ cdef parsedString read_string(const unsigned char[:] buf, const int maxlen):
     return s
 
 
+@cython.final
 cdef class AvroFlowtuple:
-
-    cdef unsigned int sizeinbuf
-    cdef long attributes_l[16]
-    cdef char *attributes_s[4]
 
     def __init__(self):
         for i in range(16):
@@ -123,13 +98,36 @@ cdef class AvroFlowtuple:
         return offinc
 
     cpdef long getNumeric(self, int attrind):
-        return self.attributes_l[attrind]
+        return self.attributes_l[<int>attrind]
 
     cpdef str getString(self, int attrind):
-        return str(self.attributes_s[attrind])
+        return str(self.attributes_s[<int>attrind])
 
     cpdef unsigned int getFlowtupleSizeInBuffer(self):
         return self.sizeinbuf
+
+    cpdef dict asDict(self):
+        return {
+            "timestamp": self.attributes_l[<int>ATTR_FT_TIMESTAMP],
+            "src_ip": self.attributes_l[<int>ATTR_FT_SRC_IP],
+            "dst_ip": self.attributes_l[<int>ATTR_FT_DST_IP],
+            "src_port": self.attributes_l[<int>ATTR_FT_SRC_PORT],
+            "dst_port": self.attributes_l[<int>ATTR_FT_DST_PORT],
+            "protocol": self.attributes_l[<int>ATTR_FT_PROTOCOL],
+            "ttl": self.attributes_l[<int>ATTR_FT_TTL],
+            "tcpflags": self.attributes_l[<int>ATTR_FT_TCP_FLAGS],
+            "ip_len": self.attributes_l[<int>ATTR_FT_IP_LEN],
+            "packets": self.attributes_l[<int>ATTR_FT_PKT_COUNT],
+            "tcp_synlen": self.attributes_l[<int>ATTR_FT_SYN_LEN],
+            "tcp_synwinlen": self.attributes_l[<int>ATTR_FT_SYNWIN_LEN],
+            "is_spoofed": self.attributes_l[<int>ATTR_FT_ISSPOOFED],
+            "is_masscan": self.attributes_l[<int>ATTR_FT_ISMASSCAN],
+            "asn": self.attributes_l[<int>ATTR_FT_ASN],
+            "netacq_continent": self.attributes_s[<int>ATTR_FT_NETACQ_CONTINENT],
+            "netacq_country": self.attributes_s[<int>ATTR_FT_NETACQ_COUNTRY],
+            "maxmind_country": self.attributes_s[<int>ATTR_FT_MAXMIND_COUNTRY],
+            "maxmind_continent": self.attributes_s[<int>ATTR_FT_MAXMIND_CONTINENT]
+        }
 
     cdef int parseString(self, const unsigned char[:] buf, const int maxlen,
             int attrind):
@@ -155,16 +153,8 @@ cdef class AvroFlowtuple:
                 PyMem_Free(self.attributes_s[i])
                 self.attributes_s[i] = NULL
 
-
+@cython.final
 cdef class AvroFlowtupleReader:
-
-    cdef unsigned int nextblock
-    cdef unsigned int unzip_offset
-    cdef fh
-    cdef str filepath
-    cdef bytearray syncmarker
-    cdef bytearray bufrin
-    cdef bytes unzipped
 
     def __init__(self, filepath):
         self.filepath = filepath
