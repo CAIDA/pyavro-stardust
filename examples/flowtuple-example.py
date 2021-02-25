@@ -31,7 +31,7 @@ def run():
 
     # This will read all flowtuples and call `perFlowtupleCallback` on
     # each one
-    ftreader.perFlowtuple(perFlowtupleCallback)
+    ftreader.perAvroRecord(perFlowtupleCallback)
 
     ftreader.close()
 

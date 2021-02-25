@@ -1,5 +1,5 @@
 import cython
-from pyavro_stardust.baseavro cimport AvroRecord
+from pyavro_stardust.baseavro cimport AvroRecord, AvroReader
 
 cpdef enum FlowtupleAttributeNum:
     ATTR_FT_TIMESTAMP = 0
@@ -25,27 +25,12 @@ cpdef enum FlowtupleAttributeStr:
     ATTR_FT_NETACQ_COUNTRY = 3
 
 
-@cython.final
 cdef class AvroFlowtuple(AvroRecord):
-
     cpdef dict asDict(self)
 
-@cython.final
-cdef class AvroFlowtupleReader:
-
-    cdef unsigned int nextblock
-    cdef unsigned int unzip_offset
-    cdef fh
-    cdef str filepath
-    cdef bytearray syncmarker
-    cdef bytearray bufrin
-    cdef bytes unzipped
-    cdef AvroFlowtuple avroft
-
-    cpdef void _readAvroFileHeader(self)
-    cdef int _parseFlowtupleAvro(self, const unsigned char[:] buf,
+cdef class AvroFlowtupleReader(AvroReader):
+    cdef int _parseNextRecord(self, const unsigned char[:] buf,
             const int maxlen)
-    cdef AvroFlowtuple _getNextFlowtuple(self)
 
 
 # vim: set sw=4 tabstop=4 softtabstop=4 expandtab :

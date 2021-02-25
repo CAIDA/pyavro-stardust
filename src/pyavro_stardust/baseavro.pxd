@@ -25,4 +25,19 @@ cdef class AvroRecord:
     cpdef void resetRecord(self)
 
 
+cdef class AvroReader:
+    cdef unsigned int nextblock
+    cdef unsigned int unzip_offset
+    cdef fh
+    cdef str filepath
+    cdef bytearray syncmarker
+    cdef bytearray bufrin
+    cdef bytes unzipped
+    cdef AvroRecord currentrec
+
+    cpdef void _readAvroFileHeader(self)
+    cdef int _parseNextRecord(self, const unsigned char[:] buf,
+                 const int maxlen)
+    cdef AvroRecord _getNextRecord(self)
+
 # vim: set sw=4 tabstop=4 softtabstop=4 expandtab :
