@@ -26,6 +26,7 @@ def no_cythonize(extensions, **_ignore):
 
 
 extensions = [
+    Extension('pyavro_stardust.baseavro', ['src/pyavro_stardust/baseavro.pyx']),
     Extension('pyavro_stardust.flowtuple', ['src/pyavro_stardust/flowtuple.pyx'])
 ]
 

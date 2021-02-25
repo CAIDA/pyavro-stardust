@@ -1,4 +1,5 @@
 import cython
+from pyavro_stardust.baseavro cimport AvroRecord
 
 cpdef enum FlowtupleAttributeNum:
     ATTR_FT_TIMESTAMP = 0
@@ -25,21 +26,9 @@ cpdef enum FlowtupleAttributeStr:
 
 
 @cython.final
-cdef class AvroFlowtuple:
+cdef class AvroFlowtuple(AvroRecord):
 
-    cdef unsigned int sizeinbuf
-    cdef long attributes_l[16]
-    cdef char *attributes_s[4]
-
-    cdef int parseNumeric(self, const unsigned char[:] buf, const int maxlen,
-                int attrind)
-    cpdef long getNumeric(self, int attrind)
-    cpdef str getString(self, int attrind)
-    cpdef unsigned int getFlowtupleSizeInBuffer(self)
     cpdef dict asDict(self)
-    cdef int parseString(self, const unsigned char[:] buf, const int maxlen,
-                int attrind)
-    cpdef void releaseStrings(self)
 
 @cython.final
 cdef class AvroFlowtupleReader:
@@ -51,9 +40,10 @@ cdef class AvroFlowtupleReader:
     cdef bytearray syncmarker
     cdef bytearray bufrin
     cdef bytes unzipped
+    cdef AvroFlowtuple avroft
 
     cpdef void _readAvroFileHeader(self)
-    cdef AvroFlowtuple _parseFlowtupleAvro(self, const unsigned char[:] buf,
+    cdef int _parseFlowtupleAvro(self, const unsigned char[:] buf,
             const int maxlen)
     cdef AvroFlowtuple _getNextFlowtuple(self)
 

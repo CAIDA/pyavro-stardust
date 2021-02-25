@@ -1,72 +1,13 @@
 # cython: language_level=3
-from libc.string cimport memcpy
-from cpython.mem cimport PyMem_Malloc, PyMem_Free
 import zlib, wandio
 cimport cython
-
-cdef struct parsedString:
-    int toskip
-    int strlen
-    unsigned char *start
-
-cdef (int, long) read_long(const unsigned char[:] buf, const int maxlen):
-    cdef int longlen = 0
-    cdef int shift
-    cdef unsigned long b
-    cdef unsigned long n
-
-    if maxlen == 0:
-        return 0,0
-
-    b = buf[0]
-    n = b & 0x7F
-    shift = 7
-
-    while (b & 0x80) != 0:
-        longlen += 1
-        if longlen >= maxlen:
-            return 0,0
-        b = buf[longlen]
-        n |= ((b & 0x7F) << shift)
-        shift += 7
-
-
-    return (longlen + 1, (n >> 1) ^ -(n & 1))
-
-cdef parsedString read_string(const unsigned char[:] buf, const int maxlen):
-    cdef int skip, strlen
-    cdef parsedString s
-
-    skip,strlen = read_long(buf, maxlen)
-    if skip == 0:
-        s.toskip = 0
-        s.strlen = 0
-        s.start = NULL
-        return s
-
-    s.toskip = skip
-    s.strlen = strlen
-    s.start = <unsigned char *>&(buf[skip])
-    return s
-
+from pyavro_stardust.baseavro cimport AvroRecord, read_long, read_string
 
 @cython.final
-cdef class AvroFlowtuple:
+cdef class AvroFlowtuple(AvroRecord):
 
     def __init__(self):
-        for i in range(16):
-            self.attributes_l[i] = 0
-
-        for i in range(4):
-            self.attributes_s[i] = NULL
-
-        self.sizeinbuf = 0
-
-    def __dealloc__(self):
-        for i in range(4):
-            if self.attributes_s[i] != NULL:
-                PyMem_Free(self.attributes_s[i])
-
+        super().__init__(ATTR_FT_ASN + 1, ATTR_FT_NETACQ_COUNTRY + 1)
 
     def __str__(self):
         return "%u %08x %08x %u %u %u %u %u %u %s %s %u" % \
@@ -82,29 +23,6 @@ cdef class AvroFlowtuple:
              self.attributes_s[<int>ATTR_FT_NETACQ_CONTINENT].decode('utf-8'), \
              self.attributes_s[<int>ATTR_FT_NETACQ_COUNTRY].decode('utf-8'), \
              self.attributes_l[<int>ATTR_FT_ASN])
-
-    cdef int parseNumeric(self, const unsigned char[:] buf, const int maxlen,
-            int attrind):
-        cdef int offinc
-        cdef long longval
-
-        offinc, longval = read_long(buf, maxlen)
-        if offinc == 0:
-            return -1
-
-        self.attributes_l[attrind] = longval
-        self.sizeinbuf += offinc
-
-        return offinc
-
-    cpdef long getNumeric(self, int attrind):
-        return self.attributes_l[<int>attrind]
-
-    cpdef str getString(self, int attrind):
-        return str(self.attributes_s[<int>attrind])
-
-    cpdef unsigned int getFlowtupleSizeInBuffer(self):
-        return self.sizeinbuf
 
     cpdef dict asDict(self):
         return {
@@ -129,30 +47,6 @@ cdef class AvroFlowtuple:
             "maxmind_continent": self.attributes_s[<int>ATTR_FT_MAXMIND_CONTINENT]
         }
 
-    cdef int parseString(self, const unsigned char[:] buf, const int maxlen,
-            int attrind):
-
-        cdef parsedString astr
-
-        astr = read_string(buf, maxlen)
-
-        if astr.toskip == 0:
-            return 0
-
-        self.sizeinbuf += astr.toskip + astr.strlen
-        self.attributes_s[attrind] = <char *>PyMem_Malloc(sizeof(char) * astr.strlen + 1)
-
-        memcpy(self.attributes_s[attrind], astr.start, astr.strlen)
-        self.attributes_s[attrind][astr.strlen] = b'\x00'
-
-        return astr.toskip + astr.strlen
-
-    cpdef void releaseStrings(self):
-        for i in range(4):
-            if self.attributes_s[i] != NULL:
-                PyMem_Free(self.attributes_s[i])
-                self.attributes_s[i] = NULL
-
 @cython.final
 cdef class AvroFlowtupleReader:
 
@@ -164,6 +58,7 @@ cdef class AvroFlowtupleReader:
         self.nextblock = 0
         self.unzipped = None
         self.unzip_offset = 0
+        self.avroft = AvroFlowtuple()
 
     def _readMore(self):
         inread = self.fh.read(1024 * 1024)
@@ -226,40 +121,39 @@ cdef class AvroFlowtupleReader:
     def close(self):
         self.fh.close()
 
-    cdef AvroFlowtuple _parseFlowtupleAvro(self, const unsigned char[:] buf,
+    cdef int _parseFlowtupleAvro(self, const unsigned char[:] buf,
             const int maxlen):
 
         cdef int offset, offinc
-        cdef AvroFlowtuple ft
         cdef FlowtupleAttributeNum i
         cdef FlowtupleAttributeStr j
 
         if maxlen == 0:
-            return None
+            return 0
         offset = 0
-        ft = AvroFlowtuple()
+
+        self.avroft.resetRecord()
 
         # Process each field in turn -- order is critical, must match
         # field order in avro record!
         for i in range(0, ATTR_FT_ISMASSCAN + 1):
-            offinc = ft.parseNumeric(buf[offset:], maxlen - offset, i)
+            offinc = self.avroft.parseNumeric(buf[offset:], maxlen - offset, i)
             if offinc <= 0:
-                return None
+                return 0
             offset += offinc
 
         for j in range(0, ATTR_FT_NETACQ_COUNTRY + 1):
-            offinc = ft.parseString(buf[offset:], maxlen - offset, j)
+            offinc = self.avroft.parseString(buf[offset:], maxlen - offset, j)
             if offinc <= 0:
-                return None
+                return 0
             offset += offinc
 
-        offinc = ft.parseNumeric(buf[offset:], maxlen - offset, ATTR_FT_ASN)
+        offinc = self.avroft.parseNumeric(buf[offset:], maxlen - offset, ATTR_FT_ASN)
         if offinc <= 0:
-            return None
+            return 0
         offset += offinc
 
-        return ft
-
+        return 1
 
     cdef AvroFlowtuple _getNextFlowtuple(self):
         if self.unzipped is None:
@@ -268,11 +162,12 @@ cdef class AvroFlowtupleReader:
         if self.unzip_offset >= len(self.unzipped):
             return None
 
-        ft = self._parseFlowtupleAvro(self.unzipped[self.unzip_offset:],
-                len(self.unzipped) - self.unzip_offset)
-        if ft is not None:
-            self.unzip_offset += ft.getFlowtupleSizeInBuffer()
-        return ft
+        if self._parseFlowtupleAvro(self.unzipped[self.unzip_offset:],
+                len(self.unzipped) - self.unzip_offset) == 0:
+            return None
+
+        self.unzip_offset += self.avroft.getRecordSizeInBuffer()
+        return self.avroft
 
 
     def perFlowtuple(self, func, userarg=None):
@@ -321,7 +216,6 @@ cdef class AvroFlowtupleReader:
             while ft is not None:
 
                 func(ft, userarg)
-                ft.releaseStrings()
                 ft = self._getNextFlowtuple()
 
             offset += blocksize
