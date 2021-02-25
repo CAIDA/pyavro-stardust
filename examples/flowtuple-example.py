@@ -12,7 +12,7 @@ protocols = defaultdict(int)
 # Incredibly simple callback that simply increments a global counter for
 # each flowtuple, as well as tracking the number of packets for each
 # IP protocols
-def perFlowtupleCallback(ft):
+def perFlowtupleCallback(ft, userarg):
     global counter, protocols
     counter += 1
 

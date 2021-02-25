@@ -275,7 +275,7 @@ cdef class AvroFlowtupleReader:
         return ft
 
 
-    def perFlowtuple(self, func):
+    def perFlowtuple(self, func, userarg=None):
         cdef unsigned int offset, fullsize
         cdef int offinc
         cdef long blockcnt, blocksize
@@ -320,7 +320,7 @@ cdef class AvroFlowtupleReader:
             ft = self._getNextFlowtuple()
             while ft is not None:
 
-                func(ft)
+                func(ft, userarg)
                 ft.releaseStrings()
                 ft = self._getNextFlowtuple()
 
