@@ -52,13 +52,15 @@ cdef class AvroRecord:
         self.attributes_s = NULL
 
     def __init__(self, numeric, strings):
-        self.attributes_l = <long *>PyMem_Malloc(sizeof(long) * numeric)
-        self.attributes_s = <char **>PyMem_Malloc(sizeof(char *) * strings)
+        if (numeric > 0):
+            self.attributes_l = <long *>PyMem_Malloc(sizeof(long) * numeric)
+            for i in range(numeric):
+                self.attributes_l[i] = 0
 
-        for i in range(numeric):
-            self.attributes_l[i] = 0
-        for i in range(strings):
-            self.attributes_s[i] = NULL
+        if (strings > 0):
+            self.attributes_s = <char **>PyMem_Malloc(sizeof(char *) * strings)
+            for i in range(strings):
+                self.attributes_s[i] = NULL
         self.sizeinbuf = 0
         self.stringcount = strings
         self.numcount = numeric
