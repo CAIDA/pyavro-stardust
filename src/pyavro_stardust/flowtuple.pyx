@@ -1,7 +1,7 @@
 # cython: language_level=3
-import zlib, wandio
 cimport cython
-from pyavro_stardust.baseavro cimport AvroRecord, read_long, read_string
+from pyavro_stardust.baseavro cimport AvroRecord, read_long, read_string, \
+        AvroReader
 
 @cython.final
 cdef class AvroFlowtuple(AvroRecord):
