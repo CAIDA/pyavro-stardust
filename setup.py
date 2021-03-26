@@ -27,7 +27,8 @@ def no_cythonize(extensions, **_ignore):
 
 extensions = [
     Extension('pyavro_stardust.baseavro', ['src/pyavro_stardust/baseavro.pyx']),
-    Extension('pyavro_stardust.flowtuple', ['src/pyavro_stardust/flowtuple.pyx'])
+    Extension('pyavro_stardust.flowtuple3', ['src/pyavro_stardust/flowtuple3.pyx']),
+    #Extension('pyavro_stardust.rsdos', ['src/pyavro_stardust/rsdos.pyx'])
 ]
 
 CYTHONIZE = bool(int(os.getenv("CYTHONIZE", 0))) and cythonize is not None

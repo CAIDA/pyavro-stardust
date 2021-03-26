@@ -1,10 +1,10 @@
-# Example code that uses the AvroFlowtupleReader extension class to
+# Example code that uses the AvroFlowtuple3Reader extension class to
 # count flowtuples via a perFlowtuple callback method
 
 import sys
 from collections import defaultdict
-from pyavro_stardust.flowtuple import AvroFlowtupleReader, \
-        FlowtupleAttributeNum, FlowtupleAttributeStr
+from pyavro_stardust.flowtuple3 import AvroFlowtuple3Reader, \
+        Flowtuple3AttributeNum, Flowtuple3AttributeStr
 
 counter = 0
 protocols = defaultdict(int)
@@ -26,7 +26,7 @@ def run():
 
     # sys.argv[1] must be a valid wandio path -- e.g. a swift URL or
     # a path to a file on disk
-    ftreader = AvroFlowtupleReader(sys.argv[1])
+    ftreader = AvroFlowtuple3Reader(sys.argv[1])
     ftreader.start()
 
     # This will read all flowtuples and call `perFlowtupleCallback` on
