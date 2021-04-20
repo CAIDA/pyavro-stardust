@@ -7,7 +7,7 @@ from pyavro_stardust.baseavro cimport AvroRecord, read_long, read_string, \
 cdef class AvroFlowtuple3(AvroRecord):
 
     def __init__(self):
-        super().__init__(ATTR_FT3_ASN + 1, ATTR_FT3_NETACQ_COUNTRY + 1)
+        super().__init__(ATTR_FT3_ASN + 1, ATTR_FT3_NETACQ_COUNTRY + 1, 0)
 
     def __str__(self):
         return "%u %08x %08x %u %u %u %u %u %u %s %s %u" % \
