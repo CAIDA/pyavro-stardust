@@ -16,7 +16,8 @@ install-from-source: dist
 
 clean:
 	$(RM) -r build dist src/*.egg-info
-	$(RM) -r src/{pyavrostardust.c}
+	$(RM) -r src/pyavro_stardust/*.c src/pyavro_stardust/*.cpp
+	$(RM) -r src/pyavro_stardust/*.html
 	$(RM) -r .pytest_cache
 	find . -name __pycache__ -exec rm -r {} +
 	#git clean -fdX

@@ -1,7 +1,8 @@
 # cython: language_level=3
 from libc.string cimport memcpy
-from cpython.mem cimport PyMem_Malloc, PyMem_Free
-import zlib, wandio
+from libcpp.vector cimport vector
+from cpython.mem cimport PyMem_Malloc, PyMem_Free, PyMem_Realloc
+import zlib, wandio, sys
 cimport cython
 
 cdef (int, long) read_long(const unsigned char[:] buf, const int maxlen):
@@ -44,14 +45,47 @@ cdef parsedString read_string(const unsigned char[:] buf, const int maxlen):
     s.start = <unsigned char *>&(buf[skip])
     return s
 
+cdef parsedNumericArrayBlock read_numeric_array(const unsigned char[:] buf,
+        const int maxlen):
+    cdef int skip
+    cdef long arrayitem, blockcount
+    cdef parsedNumericArrayBlock arr
+
+    skip, blockcount = read_long(buf, maxlen)
+    if skip == 0:
+        arr.totalsize = 0
+        arr.blockcount = 0
+        arr.values = NULL
+        return arr
+
+    arr.totalsize = skip
+    arr.blockcount = 0
+
+    if blockcount == 0:
+        arr.values = NULL
+        return arr
+
+    arr.values = <long *>PyMem_Malloc(sizeof(long) * arr.blockcount)
+
+    for i in range(blockcount):
+        skip, arrayitem = read_long(buf[arr.totalsize:], maxlen - arr.totalsize)
+        if skip == 0:
+            break
+        arr.totalsize += skip
+        arr.values[arr.blockcount] = arrayitem
+        arr.blockcount += 1
+
+    return arr
 
 cdef class AvroRecord:
 
     def __cinit__(self):
         self.attributes_l = NULL
         self.attributes_s = NULL
+        self.attributes_na = NULL
+        self.attributes_na_sizes = NULL;
 
-    def __init__(self, numeric, strings):
+    def __init__(self, numeric, strings, numarrays):
         if (numeric > 0):
             self.attributes_l = <long *>PyMem_Malloc(sizeof(long) * numeric)
             for i in range(numeric):
@@ -61,9 +95,20 @@ cdef class AvroRecord:
             self.attributes_s = <char **>PyMem_Malloc(sizeof(char *) * strings)
             for i in range(strings):
                 self.attributes_s[i] = NULL
+
+        if (numarrays > 0):
+            self.attributes_na = <long **>PyMem_Malloc(sizeof(long **) *
+                    numarrays)
+            self.attributes_na_sizes = <long *>PyMem_Malloc(sizeof(long) *
+                    numarrays)
+            for i in range(numarrays):
+                self.attributes_na[i] = NULL
+                self.attributes_na_sizes[i] = 0
+
         self.sizeinbuf = 0
         self.stringcount = strings
         self.numcount = numeric
+        self.numarraycount = numarrays
 
     def __dealloc__(self):
         if self.attributes_s != NULL:
@@ -71,6 +116,16 @@ cdef class AvroRecord:
                 if self.attributes_s[i] != NULL:
                     PyMem_Free(self.attributes_s[i])
             PyMem_Free(self.attributes_s)
+
+
+        if self.attributes_na != NULL:
+            for i in range(self.numarraycount):
+                if self.attributes_na[i] != NULL:
+                    PyMem_Free(self.attributes_na[i])
+            PyMem_Free(self.attributes_na)
+
+        if self.attributes_na_sizes != NULL:
+            PyMem_Free(self.attributes_na_sizes)
 
         if self.attributes_l != NULL:
             PyMem_Free(self.attributes_l)
@@ -98,6 +153,14 @@ cdef class AvroRecord:
     cpdef unsigned int getRecordSizeInBuffer(self):
         return self.sizeinbuf
 
+    cpdef vector[long] getNumericArray(self, int attrind):
+        cdef int i
+        cdef vector[long] vec
+
+        for i in range(self.attributes_na_sizes[attrind]):
+            vec.push_back(self.attributes_na[<int>attrind][i])
+        return vec
+
     cdef int parseString(self, const unsigned char[:] buf, const int maxlen,
             int attrind):
 
@@ -116,16 +179,59 @@ cdef class AvroRecord:
 
         return astr.toskip + astr.strlen
 
+    cdef int parseNumericArray(self, const unsigned char[:] buf,
+            const int maxlen, int attrind):
+
+        cdef parsedNumericArrayBlock block
+        cdef int toskip, i
+
+        toskip = 0
+        while toskip < maxlen:
+            block = read_numeric_array(buf[toskip:], maxlen - toskip)
+
+            if block.blockcount == 0:
+                toskip += block.totalsize
+                break
+
+            if self.attributes_na[attrind] == NULL:
+                self.attributes_na[attrind] = block.values
+                self.attributes_na_sizes[attrind] = block.blockcount
+            else:
+                # XXX This code path is untested due to generally not being
+                # used at all in practice
+                newsize = block.blockcount + self.attributes_na_sizes[attrind]
+                newmem = <long *>PyMem_Realloc(self.attributes_na[attrind],
+                        newsize * sizeof(long))
+                for i in range(block.blockcount):
+                    newmem[self.attributes_na_sizes[attrind] + i] = block.values[i]
+                self.attributes_na_sizes[attrind] += block.blockcount
+                self.attributes_na[attrind] = newmem
+                PyMem_Free(block.values)
+
+
+            toskip += block.totalsize
+
+        self.sizeinbuf += toskip
+        return toskip
+
+
     cpdef void resetRecord(self):
+        cdef int i
+
         self.sizeinbuf = 0
 
-        if self.attributes_s == NULL:
-            return
+        if self.attributes_s != NULL:
+            for i in range(self.stringcount):
+                if self.attributes_s[i] != NULL:
+                    PyMem_Free(self.attributes_s[i])
+                    self.attributes_s[i] = NULL
 
-        for i in range(self.stringcount):
-            if self.attributes_s[i] != NULL:
-                PyMem_Free(self.attributes_s[i])
-                self.attributes_s[i] = NULL
+        if self.attributes_na != NULL:
+            for i in range(self.numarraycount):
+                if self.attributes_na[i] != NULL:
+                    PyMem_Free(self.attributes_na[i])
+                    self.attributes_na_sizes[i] = 0
+                    self.attributes_na[i] = NULL
 
 
 cdef class AvroReader:
@@ -140,7 +246,14 @@ cdef class AvroReader:
         self.currentrec = None
 
     def _readMore(self):
-        inread = self.fh.read(1024 * 1024)
+        try:
+            inread = self.fh.read(1024 * 1024)
+        except UnicodeDecodeError as e:
+            print(e)
+            return -1
+        except KeyboardInterrupt:
+            return -1
+
         if len(inread) > 0 and inread != '':
             self.bufrin += inread
             return 1
@@ -152,7 +265,8 @@ cdef class AvroReader:
         cdef long array_size, keylen, vallen
 
         if len(self.bufrin) < 32:
-            self._readMore()
+            if self._readMore() < 0:
+                sys.exit(1)
 
         if len(self.bufrin) < 32:
             return
@@ -189,7 +303,7 @@ cdef class AvroReader:
         if self.fh is not None:
             return
         try:
-            self.fh = wandio.open(self.filepath)
+            self.fh = wandio.open(self.filepath, 'rb')
         except:
             raise
 
