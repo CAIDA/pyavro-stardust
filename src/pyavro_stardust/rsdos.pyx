@@ -1,6 +1,7 @@
 
 # cython: language_level=3
 cimport cython
+from cpython.mem cimport PyMem_Free
 from pyavro_stardust.baseavro cimport AvroRecord, read_long, read_string, \
         AvroReader, parsedString
 
@@ -33,7 +34,7 @@ cdef class AvroRsdos(AvroRecord):
         if self.pktcontentlen == 0:
             initpkt = None
         else:
-            initpkt = <bytes>self.packetcontent
+            initpkt = self.getRsdosPacketString()
 
         return {
             "timestamp": self.attributes_l[<int>ATTR_RSDOS_TIMESTAMP],
@@ -57,14 +58,25 @@ cdef class AvroRsdos(AvroRecord):
 
     cpdef void resetRecord(self):
         self.pktcontentlen = 0
+        if self.packetcontent != NULL:
+            PyMem_Free(self.packetcontent)
         super(AvroRsdos, self).resetRecord()
 
-    cdef void setRsdosPacketString(self, parsedString astr):
+    cpdef bytes getRsdosPacketString(self):
+        return <bytes>self.packetcontent[:self.pktcontentlen]
+
+    cpdef int setRsdosPacketString(self, const unsigned char[:] buf,
+            const unsigned int maxlen):
+
+        cdef parsedString astr
+
+        astr = read_string(buf, maxlen, addNullTerm=False)
+        if astr.toskip == 0:
+            return 0
         self.packetcontent = astr.start
         self.pktcontentlen = astr.strlen
-
-    cpdef bytes getRsdosPacketString(self):
-        return <bytes>self.packetcontent
+        self.sizeinbuf += astr.toskip + astr.strlen
+        return 1
 
 @cython.final
 cdef class AvroRsdosReader(AvroReader):
@@ -73,12 +85,11 @@ cdef class AvroRsdosReader(AvroReader):
         super().__init__(filepath)
         self.currentrec = AvroRsdos()
 
-    cdef int _parseNextRecord(self,  const unsigned char[:] buf,
-            const int maxlen):
+    cdef int _parseNextRecord(self, const unsigned char[:] buf,
+            const unsigned int maxlen):
 
-        cdef int offset, offinc
+        cdef unsigned int offset, offinc
         cdef RsdosAttribute i
-        cdef parsedString astr
 
         if maxlen == 0:
             return 0
@@ -89,17 +100,12 @@ cdef class AvroRsdosReader(AvroReader):
         for i in range(0, ATTR_RSDOS_LATEST_TIME_USEC + 1):
             offinc = self.currentrec.parseNumeric(buf[offset:],
                     maxlen - offset, i)
-            if offinc <= 0:
+            if offinc == 0:
                 return 0
             offset += offinc
 
-        astr = read_string(buf[offset:], maxlen - offset)
-        if astr.toskip == 0:
-            return 0
-
-        self.currentrec.setRsdosPacketString(astr)
-        self.currentrec.sizeinbuf += astr.toskip + astr.strlen
-        return 1
+        return self.currentrec.setRsdosPacketString(buf[offset:],
+                maxlen - offset);
 
 
 # vim: set sw=4 tabstop=4 softtabstop=4 expandtab :

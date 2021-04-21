@@ -1,4 +1,4 @@
-import cython
+cimport cython
 from pyavro_stardust.baseavro cimport AvroRecord, AvroReader, parsedString
 
 cpdef enum RsdosAttribute:
@@ -19,21 +19,20 @@ cpdef enum RsdosAttribute:
     ATTR_RSDOS_LATEST_TIME_USEC = 14
     ATTR_RSDOS_LAST_ATTRIBUTE = 15
 
-@cython.final
 cdef class AvroRsdos(AvroRecord):
 
     cdef unsigned char *packetcontent
-    cdef public int pktcontentlen
+    cdef public unsigned int pktcontentlen
 
     cpdef dict asDict(self)
     cpdef void resetRecord(self)
-    cdef void setRsdosPacketString(self, parsedString astr)
     cpdef bytes getRsdosPacketString(self)
+    cpdef int setRsdosPacketString(self, const unsigned char[:] buf,
+            const unsigned int maxlen)
 
-@cython.final
 cdef class AvroRsdosReader(AvroReader):
     cdef int _parseNextRecord(self, const unsigned char[:] buf,
-            const int maxlen)
+            const unsigned int maxlen)
 
 
 # vim: set sw=4 tabstop=4 softtabstop=4 expandtab :
