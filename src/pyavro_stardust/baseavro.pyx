@@ -5,7 +5,6 @@ from cpython.mem cimport PyMem_Malloc, PyMem_Free, PyMem_Realloc
 import zlib, wandio, sys
 cimport cython
 
-
 cdef (unsigned int, long) read_long(const unsigned char[:] buf,
         const unsigned int maxlen):
     cdef unsigned int longlen = 0
@@ -33,6 +32,7 @@ cdef (unsigned int, long) read_long(const unsigned char[:] buf,
 
 cdef parsedString read_string(const unsigned char[:] buf,
         const unsigned int maxlen, int addNullTerm=True):
+
     cdef unsigned int skip
     cdef long strlen
     cdef parsedString s
@@ -192,6 +192,7 @@ cdef class AvroRecord:
 
         if attrind < 0 or <unsigned int>attrind >= self.stringcount:
             return 0
+
 
         astr = read_string(buf, maxlen, True)
 

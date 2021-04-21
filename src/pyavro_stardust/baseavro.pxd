@@ -18,6 +18,7 @@ cdef (unsigned int, long) read_long(const unsigned char[:] buf,
         const unsigned int maxlen)
 cdef parsedString read_string(const unsigned char[:] buf,
         const unsigned int maxlen, int addNullTerm=*)
+
 cdef parsedNumericArrayBlock read_numeric_array(const unsigned char[:] buf,
         const unsigned int maxlen)
 
