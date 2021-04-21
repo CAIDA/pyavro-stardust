@@ -330,10 +330,31 @@ cdef class AvroReader:
     def start(self):
         if self.fh is not None:
             return
-        try:
-            self.fh = wandio.open(self.filepath, 'rb')
-        except:
-            raise
+
+        # Try 'rb' mode if pywandio supports it, else fallback to 'r'
+        # and hope that we're not reading a file off local disk (that
+        # pywandio will try to "decode" into utf-8)
+        #
+        # Future versions of pywandio may allow us to override the
+        # decoding method, in which case we can rework this code to be
+        # less clunky.
+        mode = 'rb'
+        saved = None
+        while mode != 'fail':
+            try:
+                self.fh = wandio.open(self.filepath, mode=mode)
+            except ValueError as e:
+                if mode == 'rb':
+                    mode = 'r'
+                else:
+                    mode = 'fail'
+                    raise
+            except Exception:
+                raise
+
+            if self.fh is not None:
+                break
+
 
         if self.syncmarker is None:
             self._readAvroFileHeader()
