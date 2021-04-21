@@ -31,7 +31,8 @@ cdef (unsigned int, long) read_long(const unsigned char[:] buf,
     return (longlen + 1, (n >> 1) ^ -(n & 1))
 
 cdef parsedString read_string(const unsigned char[:] buf,
-        const unsigned int maxlen):
+        const unsigned int maxlen, int addNullTerm=True):
+
     cdef unsigned int skip
     cdef long strlen
     cdef parsedString s
@@ -45,7 +46,15 @@ cdef parsedString read_string(const unsigned char[:] buf,
 
     s.toskip = skip
     s.strlen = strlen
-    s.start = <unsigned char *>&(buf[skip])
+
+    if addNullTerm:
+        s.start = <unsigned char *>PyMem_Malloc(strlen + 1)
+        memcpy(s.start, &(buf[skip]), strlen)
+        s.start[strlen] = b'\x00'
+    else:
+        s.start = <unsigned char *>PyMem_Malloc(strlen)
+        memcpy(s.start, &(buf[skip]), strlen)
+
     return s
 
 cdef parsedNumericArrayBlock read_numeric_array(const unsigned char[:] buf,
@@ -184,17 +193,14 @@ cdef class AvroRecord:
         if attrind < 0 or <unsigned int>attrind >= self.stringcount:
             return 0
 
-        astr = read_string(buf, maxlen)
+
+        astr = read_string(buf, maxlen, True)
 
         if astr.toskip == 0:
             return 0
 
         self.sizeinbuf += astr.toskip + astr.strlen
-        self.attributes_s[attrind] = <char *>PyMem_Malloc(sizeof(char) * astr.strlen + 1)
-
-        memcpy(self.attributes_s[attrind], astr.start, astr.strlen)
-        self.attributes_s[attrind][astr.strlen] = b'\x00'
-
+        self.attributes_s[attrind] = <char *>astr.start
         return astr.toskip + astr.strlen
 
     @cython.wraparound(False)
@@ -325,10 +331,31 @@ cdef class AvroReader:
     def start(self):
         if self.fh is not None:
             return
-        try:
-            self.fh = wandio.open(self.filepath, 'rb')
-        except:
-            raise
+
+        # Try 'rb' mode if pywandio supports it, else fallback to 'r'
+        # and hope that we're not reading a file off local disk (that
+        # pywandio will try to "decode" into utf-8)
+        #
+        # Future versions of pywandio may allow us to override the
+        # decoding method, in which case we can rework this code to be
+        # less clunky.
+        mode = 'rb'
+        saved = None
+        while mode != 'fail':
+            try:
+                self.fh = wandio.open(self.filepath, mode=mode)
+            except ValueError as e:
+                if mode == 'rb':
+                    mode = 'r'
+                else:
+                    mode = 'fail'
+                    raise
+            except Exception:
+                raise
+
+            if self.fh is not None:
+                break
+
 
         if self.syncmarker is None:
             self._readAvroFileHeader()

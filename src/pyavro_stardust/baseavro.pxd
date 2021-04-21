@@ -1,4 +1,7 @@
 from libcpp.vector cimport vector
+from cpython cimport array
+import array
+
 
 cdef struct parsedString:
     unsigned int toskip
@@ -14,7 +17,8 @@ cdef struct parsedNumericArrayBlock:
 cdef (unsigned int, long) read_long(const unsigned char[:] buf,
         const unsigned int maxlen)
 cdef parsedString read_string(const unsigned char[:] buf,
-        const unsigned int maxlen)
+        const unsigned int maxlen, int addNullTerm=*)
+
 cdef parsedNumericArrayBlock read_numeric_array(const unsigned char[:] buf,
         const unsigned int maxlen)
 

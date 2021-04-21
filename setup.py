@@ -29,7 +29,7 @@ extensions = [
     Extension('pyavro_stardust.baseavro', ['src/pyavro_stardust/baseavro.pyx'], language="c++"),
     Extension('pyavro_stardust.flowtuple3', ['src/pyavro_stardust/flowtuple3.pyx'], language="c++"),
     Extension('pyavro_stardust.flowtuple4', ['src/pyavro_stardust/flowtuple4.pyx'], language="c++"),
-    #Extension('pyavro_stardust.rsdos', ['src/pyavro_stardust/rsdos.pyx'])
+    Extension('pyavro_stardust.rsdos', ['src/pyavro_stardust/rsdos.pyx'], language="c++")
 ]
 
 CYTHONIZE = bool(int(os.getenv("CYTHONIZE", 0))) and cythonize is not None
