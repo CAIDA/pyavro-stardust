@@ -44,6 +44,6 @@ cdef class AvroFlowtuple4(AvroRecord):
 
 cdef class AvroFlowtuple4Reader(AvroReader):
     cdef int _parseNextRecord(self, const unsigned char[:] buf,
-            const int maxlen)
+            const unsigned int maxlen)
 
 # vim: set sw=4 tabstop=4 softtabstop=4 expandtab :

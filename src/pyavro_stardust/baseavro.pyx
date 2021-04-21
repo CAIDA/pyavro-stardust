@@ -5,9 +5,10 @@ from cpython.mem cimport PyMem_Malloc, PyMem_Free, PyMem_Realloc
 import zlib, wandio, sys
 cimport cython
 
-cdef (int, long) read_long(const unsigned char[:] buf, const int maxlen):
-    cdef int longlen = 0
-    cdef int shift
+cdef (unsigned int, long) read_long(const unsigned char[:] buf,
+        const unsigned int maxlen):
+    cdef unsigned int longlen = 0
+    cdef unsigned int shift
     cdef unsigned long b
     cdef unsigned long n
 
@@ -29,8 +30,10 @@ cdef (int, long) read_long(const unsigned char[:] buf, const int maxlen):
 
     return (longlen + 1, (n >> 1) ^ -(n & 1))
 
-cdef parsedString read_string(const unsigned char[:] buf, const int maxlen):
-    cdef int skip, strlen
+cdef parsedString read_string(const unsigned char[:] buf,
+        const unsigned int maxlen):
+    cdef unsigned int skip
+    cdef long strlen
     cdef parsedString s
 
     skip,strlen = read_long(buf, maxlen)
@@ -46,8 +49,8 @@ cdef parsedString read_string(const unsigned char[:] buf, const int maxlen):
     return s
 
 cdef parsedNumericArrayBlock read_numeric_array(const unsigned char[:] buf,
-        const int maxlen):
-    cdef int skip
+        const unsigned int maxlen):
+    cdef unsigned int skip
     cdef long arrayitem, blockcount
     cdef parsedNumericArrayBlock arr
 
@@ -84,17 +87,23 @@ cdef class AvroRecord:
         self.attributes_s = NULL
         self.attributes_na = NULL
         self.attributes_na_sizes = NULL;
+        self.stringcount = 0
+        self.numcount = 0
+        self.numarraycount = 0
 
     def __init__(self, numeric, strings, numarrays):
+        cdef unsigned int i
         if (numeric > 0):
             self.attributes_l = <long *>PyMem_Malloc(sizeof(long) * numeric)
             for i in range(numeric):
                 self.attributes_l[i] = 0
+            self.numcount = numeric
 
         if (strings > 0):
             self.attributes_s = <char **>PyMem_Malloc(sizeof(char *) * strings)
             for i in range(strings):
                 self.attributes_s[i] = NULL
+            self.stringcount = strings
 
         if (numarrays > 0):
             self.attributes_na = <long **>PyMem_Malloc(sizeof(long **) *
@@ -104,13 +113,12 @@ cdef class AvroRecord:
             for i in range(numarrays):
                 self.attributes_na[i] = NULL
                 self.attributes_na_sizes[i] = 0
+            self.numarraycount = numarrays
 
         self.sizeinbuf = 0
-        self.stringcount = strings
-        self.numcount = numeric
-        self.numarraycount = numarrays
 
     def __dealloc__(self):
+        cdef unsigned int i
         if self.attributes_s != NULL:
             for i in range(self.stringcount):
                 if self.attributes_s[i] != NULL:
@@ -130,10 +138,15 @@ cdef class AvroRecord:
         if self.attributes_l != NULL:
             PyMem_Free(self.attributes_l)
 
-    cdef int parseNumeric(self, const unsigned char[:] buf, const int maxlen,
-            int attrind):
-        cdef int offinc
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef int parseNumeric(self, const unsigned char[:] buf,
+            const unsigned int maxlen, const int attrind):
+        cdef unsigned int offinc
         cdef long longval
+
+        if attrind < 0 or <unsigned int>attrind >= self.numcount:
+            return -1
 
         offinc, longval = read_long(buf, maxlen)
         if offinc == 0:
@@ -144,16 +157,16 @@ cdef class AvroRecord:
 
         return offinc
 
-    cpdef long getNumeric(self, int attrind):
+    cpdef long getNumeric(self, const int attrind):
         return self.attributes_l[<int>attrind]
 
-    cpdef str getString(self, int attrind):
+    cpdef str getString(self, const int attrind):
         return str(self.attributes_s[<int>attrind])
 
-    cpdef unsigned int getRecordSizeInBuffer(self):
+    cdef unsigned int getRecordSizeInBuffer(self):
         return self.sizeinbuf
 
-    cpdef vector[long] getNumericArray(self, int attrind):
+    cpdef vector[long] getNumericArray(self, const int attrind):
         cdef int i
         cdef vector[long] vec
 
@@ -161,10 +174,15 @@ cdef class AvroRecord:
             vec.push_back(self.attributes_na[<int>attrind][i])
         return vec
 
-    cdef int parseString(self, const unsigned char[:] buf, const int maxlen,
-            int attrind):
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef unsigned int parseString(self, const unsigned char[:] buf,
+            const unsigned int maxlen, const int attrind):
 
         cdef parsedString astr
+
+        if attrind < 0 or <unsigned int>attrind >= self.stringcount:
+            return 0
 
         astr = read_string(buf, maxlen)
 
@@ -179,11 +197,16 @@ cdef class AvroRecord:
 
         return astr.toskip + astr.strlen
 
-    cdef int parseNumericArray(self, const unsigned char[:] buf,
-            const int maxlen, int attrind):
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef unsigned int parseNumericArray(self, const unsigned char[:] buf,
+            const unsigned int maxlen, const int attrind):
 
         cdef parsedNumericArrayBlock block
-        cdef int toskip, i
+        cdef unsigned int toskip, i
+
+        if attrind < 0 or <unsigned int>attrind >= self.numarraycount:
+            return 0
 
         toskip = 0
         while toskip < maxlen:
@@ -216,7 +239,7 @@ cdef class AvroRecord:
 
 
     cpdef void resetRecord(self):
-        cdef int i
+        cdef unsigned int i
 
         self.sizeinbuf = 0
 
@@ -260,8 +283,8 @@ cdef class AvroReader:
         return 0
 
     cpdef void _readAvroFileHeader(self):
-        cdef unsigned int offset, fullsize
-        cdef int offinc, i
+        cdef unsigned int offset, fullsize, offinc
+        cdef int i
         cdef long array_size, keylen, vallen
 
         if len(self.bufrin) < 32:
@@ -296,7 +319,7 @@ cdef class AvroReader:
         if fullsize - offset < 16:
             return
 
-        self.syncmarker = bytearray(self.bufrin[offset: offset+16])
+        self.syncmarker = self.bufrin[offset: offset+16]
         self.nextblock = offset + 16;
 
     def start(self):
@@ -314,7 +337,7 @@ cdef class AvroReader:
         self.fh.close()
 
     cdef int _parseNextRecord(self, const unsigned char[:] buf,
-			const int maxlen):
+			const unsigned int maxlen):
         return 0
 
     cdef AvroRecord _getNextRecord(self):
@@ -331,9 +354,11 @@ cdef class AvroReader:
         self.unzip_offset += self.currentrec.getRecordSizeInBuffer()
         return self.currentrec
 
-    def perAvroRecord(self, func, userarg=None):
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cpdef void perAvroRecord(self, func, userarg=None):
         cdef unsigned int offset, fullsize
-        cdef int offinc
+        cdef unsigned int offinc
         cdef long blockcnt, blocksize
         cdef AvroRecord nextrec
 
@@ -380,7 +405,7 @@ cdef class AvroReader:
 
             offset += blocksize
 
-            assert(self.bufrin[offset: offset+16] == self.syncmarker)
+            #assert(self.bufrin[offset: offset+16] == self.syncmarker)
 
             self.nextblock = offset + 16
 
