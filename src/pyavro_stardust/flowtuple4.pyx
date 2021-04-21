@@ -54,7 +54,8 @@ cdef class AvroFlowtuple4(AvroRecord):
         }
 
         if needarrays:
-
+            # XXX this feels like it could be faster, but not sure how
+            # to improve this
             ttls = self.getNumericArray(<int>ATTR_FT4_COMMON_TTLS)
             ttl_freqs = self.getNumericArray(<int>ATTR_FT4_COMMON_TTL_FREQS)
             for i in range(ttls.size()):
@@ -96,8 +97,8 @@ cdef class AvroFlowtuple4Reader(AvroReader):
         self.currentrec = AvroFlowtuple4()
 
     cdef int _parseNextRecord(self, const unsigned char[:] buf,
-            const int maxlen):
-        cdef int offset, offinc
+            const unsigned int maxlen):
+        cdef unsigned int offset, offinc
         cdef Flowtuple4AttributeNum i
         cdef Flowtuple4AttributeStr j
         cdef Flowtuple4AttributeNumArray k

@@ -55,9 +55,9 @@ cdef class AvroFlowtuple3Reader(AvroReader):
         self.currentrec = AvroFlowtuple3()
 
     cdef int _parseNextRecord(self, const unsigned char[:] buf,
-            const int maxlen):
+            const unsigned int maxlen):
 
-        cdef int offset, offinc
+        cdef unsigned int offset, offinc
         cdef Flowtuple3AttributeNum i
         cdef Flowtuple3AttributeStr j
 
