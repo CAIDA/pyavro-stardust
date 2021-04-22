@@ -1,4 +1,4 @@
-# Example code that uses the AvroFlowtuple3Reader extension class to
+# Example code that uses the AvroFlowtuple4Reader extension class to
 # count flowtuples via a perFlowtuple callback method
 
 import sys
@@ -17,6 +17,9 @@ sizes = defaultdict(int)
 # Incredibly simple callback that simply increments a global counter for
 # each flowtuple, as well as tracking the number of packets for each
 # IP protocols
+#
+# We also report some stats on the most common TTLs, packet sizes and TCP flag
+# combinations that our flowtuple records contain
 def perFlowtupleCallback(ft, userarg):
     global counter, protocols
     counter += 1
