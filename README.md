@@ -83,7 +83,7 @@ going to make use of the `userarg` parameter, then the intended value for
 This function call will only complete once your callback has been applied to
 every individual Avro record in the input file.
 
-Step 5: Invoke the close() method on your reader instance.
+Step 5: Invoke the `close()` method on your reader instance.
 
 Step 6: Do any final post-processing or output writing that your analysis
 requires.
