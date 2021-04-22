@@ -72,7 +72,7 @@ at https://github.com/CAIDA/pyavro-stardust/wiki/Supported-Data-Formats
 In terms of efficiency, I would recommend using `asDict()` if your callback
 function needs to access more than 3 different fields in the record, as the
 function call overhead of calling methods like `getNumeric()` multiple times
-will quickly add up to exceed the cost of calling `asDict() once and having
+will quickly add up to exceed the cost of calling `asDict()` once and having
 every value available.
 
 Step 4: Invoke the `perAvroRecord()` method on your reader instance, passing
