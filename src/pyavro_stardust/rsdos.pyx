@@ -45,6 +45,7 @@ cdef class AvroRsdos(AvroRecord):
         super().__init__(ATTR_RSDOS_LAST_ATTRIBUTE, 0, 0)
         self.pktcontentlen = 0
         self.packetcontent = NULL
+        self.schemaversion = 1
 
     def __str__(self):
         return "%u %u.%06u %u.%06u %08x %u %u %u %u %u %u %u %u %u" % \
@@ -65,12 +66,14 @@ cdef class AvroRsdos(AvroRecord):
                  self.pktcontentlen)
 
     cpdef dict asDict(self):
+        cdef dict result
+
         if self.pktcontentlen == 0:
             initpkt = None
         else:
             initpkt = self.getRsdosPacketString()
 
-        return {
+        result = {
             "timestamp": self.attributes_l[<int>ATTR_RSDOS_TIMESTAMP],
             "start_time_sec": self.attributes_l[<int>ATTR_RSDOS_START_TIME_SEC],
             "start_time_usec": self.attributes_l[<int>ATTR_RSDOS_START_TIME_USEC],
@@ -88,6 +91,12 @@ cdef class AvroRsdos(AvroRecord):
             "icmp_mismatches": self.attributes_l[<int>ATTR_RSDOS_ICMP_MISMATCHES],
             "initial_packet": initpkt,
         }
+
+        if self.schemaversion == 2:
+            result['first_attack_port'] = self.attributes_l[<int>ATTR_RSDOS_FIRST_ATTACK_PORT]
+            result['first_target_port'] = self.attributes_l[<int>ATTR_RSDOS_FIRST_TARGET_PORT]
+
+        return result
 
 
     cpdef void resetRecord(self):
@@ -112,26 +121,46 @@ cdef class AvroRsdos(AvroRecord):
         self.sizeinbuf += astr.toskip + astr.strlen
         return 1
 
+    cpdef void setSchemaVersion(self, const unsigned int schemaversion):
+        self.schemaversion = schemaversion
+
 @cython.final
 cdef class AvroRsdosReader(AvroReader):
 
     def __init__(self, filepath):
         super().__init__(filepath)
         self.currentrec = AvroRsdos()
+        self.schemaversion = 0
 
     cdef int _parseNextRecord(self, const unsigned char[:] buf,
             const unsigned int maxlen):
 
         cdef unsigned int offset, offinc
         cdef RsdosAttribute i
+        cdef unsigned int maxattr
 
         if maxlen == 0:
             return 0
         offset = 0
 
-        self.currentrec.resetRecord()
 
-        for i in range(0, ATTR_RSDOS_LATEST_TIME_USEC + 1):
+        if self.schemaversion == 0:
+            self.schemaversion = 1
+            for f in self.schemajson['fields']:
+                if "first_attack_port" == f['name']:
+                    self.schemaversion = 2
+                    break
+            self.currentrec.setSchemaVersion(self.schemaversion)
+
+        if self.schemaversion == 1:
+            maxattr = ATTR_RSDOS_LATEST_TIME_USEC + 1
+        elif self.schemaversion == 2:
+            maxattr = ATTR_RSDOS_LAST_ATTRIBUTE
+        else:
+            return 0
+
+        self.currentrec.resetRecord()
+        for i in range(0, maxattr):
             offinc = self.currentrec.parseNumeric(buf[offset:],
                     maxlen - offset, i)
             if offinc == 0:

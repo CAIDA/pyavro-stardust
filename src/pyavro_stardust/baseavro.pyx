@@ -36,7 +36,7 @@
 from libc.string cimport memcpy
 from libcpp.vector cimport vector
 from cpython.mem cimport PyMem_Malloc, PyMem_Free, PyMem_Realloc
-import zlib, wandio, sys
+import zlib, wandio, sys, json
 cimport cython
 
 cdef (unsigned int, long) read_long(const unsigned char[:] buf,
@@ -307,6 +307,7 @@ cdef class AvroReader:
         self.unzipped = None
         self.unzip_offset = 0
         self.currentrec = None
+        self.schemajson = None
 
     def _readMore(self):
         try:
@@ -326,6 +327,7 @@ cdef class AvroReader:
         cdef unsigned int offset, fullsize, offinc
         cdef int i
         cdef long array_size, keylen, vallen
+        cdef parsedString mapkey, schemabytes
 
         if len(self.bufrin) < 32:
             if self._readMore() < 0:
@@ -342,15 +344,28 @@ cdef class AvroReader:
         offset += offinc
 
         for i in range(0, array_size):
-            offinc, keylen = read_long(self.bufrin[offset:], fullsize - offset)
-            if keylen is None:
+            mapkey = read_string(self.bufrin[offset:], fullsize - offset)
+            if mapkey.toskip == 0:
                 return
-            offset += (offinc + keylen)
+            offset += (mapkey.toskip + mapkey.strlen)
 
-            offinc, vallen = read_long(self.bufrin[offset:], fullsize - offset)
-            if vallen is None:
-                return
-            offset += (offinc + vallen)
+            if mapkey.start.decode('ascii') == 'avro.schema':
+                schemabytes = read_string(self.bufrin[offset:],
+                        fullsize-offset)
+                if schemabytes.toskip == 0:
+                    PyMem_Free(mapkey.start)
+                    return
+
+                self.schemajson = json.loads(schemabytes.start)
+                PyMem_Free(schemabytes.start)
+                offset += (schemabytes.toskip + schemabytes.strlen)
+            else:
+                offinc, vallen = read_long(self.bufrin[offset:], fullsize - offset)
+                if vallen is None:
+                    PyMem_Free(mapkey.start)
+                    return
+                offset += (offinc + vallen)
+            PyMem_Free(mapkey.start)
 
         # skip past trailing zero size array
         assert(self.bufrin[offset] == 0)
