@@ -51,20 +51,26 @@ cpdef enum RsdosAttribute:
     ATTR_RSDOS_START_TIME_USEC = 12
     ATTR_RSDOS_LATEST_TIME_SEC = 13
     ATTR_RSDOS_LATEST_TIME_USEC = 14
-    ATTR_RSDOS_LAST_ATTRIBUTE = 15
+    ATTR_RSDOS_FIRST_ATTACK_PORT = 15
+    ATTR_RSDOS_FIRST_TARGET_PORT = 16
+    ATTR_RSDOS_LAST_ATTRIBUTE = 17
 
 cdef class AvroRsdos(AvroRecord):
 
     cdef unsigned char *packetcontent
     cdef public unsigned int pktcontentlen
+    cdef public unsigned int schemaversion
 
     cpdef dict asDict(self)
+    cpdef void setSchemaVersion(self, const unsigned int schemaversion)
     cpdef void resetRecord(self)
     cpdef bytes getRsdosPacketString(self)
+    cpdef unsigned int getRsdosPacketSize(self)
     cpdef int setRsdosPacketString(self, const unsigned char[:] buf,
             const unsigned int maxlen)
 
 cdef class AvroRsdosReader(AvroReader):
+    cdef unsigned int schemaversion
     cdef int _parseNextRecord(self, const unsigned char[:] buf,
             const unsigned int maxlen)
 

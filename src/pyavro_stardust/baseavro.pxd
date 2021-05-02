@@ -89,6 +89,7 @@ cdef class AvroReader:
     cdef bytearray bufrin
     cdef bytes unzipped
     cdef AvroRecord currentrec
+    cdef dict schemajson
 
     cpdef void _readAvroFileHeader(self)
     cdef int _parseNextRecord(self, const unsigned char[:] buf,
