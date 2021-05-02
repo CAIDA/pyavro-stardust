@@ -63,12 +63,12 @@ cdef class AvroRsdos(AvroRecord):
                  self.attributes_l[<int>ATTR_RSDOS_PACKET_CNT],
                  self.attributes_l[<int>ATTR_RSDOS_BYTE_CNT],
                  self.attributes_l[<int>ATTR_RSDOS_MAX_PPM_INTERVAL],
-                 self.pktcontentlen)
+                 self.getRsdosPacketSize())
 
     cpdef dict asDict(self):
         cdef dict result
 
-        if self.pktcontentlen == 0:
+        if self.getRsdosPacketSize() == 0:
             initpkt = None
         else:
             initpkt = self.getRsdosPacketString()
@@ -106,12 +106,40 @@ cdef class AvroRsdos(AvroRecord):
         super(AvroRsdos, self).resetRecord()
 
     cpdef bytes getRsdosPacketString(self):
-        return <bytes>self.packetcontent[:self.pktcontentlen]
+        cdef unsigned int tagheadersize
+
+        tagheadersize = 0
+
+        # Ideally, we would be able to pull the size out of libtrace or
+        # libcorsaro, but for now we'll just have to hard-code the size here
+        if self.schemaversion == 1:
+            tagheadersize = 35 + (4 * 8)
+
+        if self.pktcontentlen <= tagheadersize:
+            return None
+
+        return <bytes>self.packetcontent[tagheadersize:self.pktcontentlen]
+
+    cpdef unsigned int getRsdosPacketSize(self):
+        cdef unsigned int tagheadersize
+
+        tagheadersize = 0
+
+        # Ideally, we would be able to pull the size out of libtrace or
+        # libcorsaro, but for now we'll just have to hard-code the size here
+        if self.schemaversion == 1:
+            tagheadersize = 35 + (4 * 8)
+
+        if self.pktcontentlen <= tagheadersize:
+            return 0
+
+        return self.pktcontentlen - tagheadersize
 
     cpdef int setRsdosPacketString(self, const unsigned char[:] buf,
             const unsigned int maxlen):
 
         cdef parsedString astr
+
 
         astr = read_string(buf, maxlen, addNullTerm=False)
         if astr.toskip == 0:

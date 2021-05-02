@@ -65,6 +65,7 @@ cdef class AvroRsdos(AvroRecord):
     cpdef void setSchemaVersion(self, const unsigned int schemaversion)
     cpdef void resetRecord(self)
     cpdef bytes getRsdosPacketString(self)
+    cpdef unsigned int getRsdosPacketSize(self)
     cpdef int setRsdosPacketString(self, const unsigned char[:] buf,
             const unsigned int maxlen)
 
