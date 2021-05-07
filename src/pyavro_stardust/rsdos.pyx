@@ -42,13 +42,14 @@ from pyavro_stardust.baseavro cimport AvroRecord, read_long, read_string, \
 @cython.final
 cdef class AvroRsdos(AvroRecord):
     def __init__(self):
-        super().__init__(ATTR_RSDOS_LAST_ATTRIBUTE, 0, 0)
+        super().__init__(ATTR_RSDOS_LAST_ATTRIBUTE,
+                ATTR_RSDOS_LAST_STRING_ATTRIBUTE, 0)
         self.pktcontentlen = 0
         self.packetcontent = NULL
         self.schemaversion = 1
 
     def __str__(self):
-        return "%u %u.%06u %u.%06u %08x %u %u %u %u %u %u %u %u %u" % \
+        return "%u %u.%06u %u.%06u %08x %u %u %u %u %u %u %u %u %u %s %s" % \
                 (self.attributes_l[<int>ATTR_RSDOS_TIMESTAMP], \
                  self.attributes_l[<int>ATTR_RSDOS_START_TIME_SEC],
                  self.attributes_l[<int>ATTR_RSDOS_START_TIME_USEC],
@@ -63,7 +64,9 @@ cdef class AvroRsdos(AvroRecord):
                  self.attributes_l[<int>ATTR_RSDOS_PACKET_CNT],
                  self.attributes_l[<int>ATTR_RSDOS_BYTE_CNT],
                  self.attributes_l[<int>ATTR_RSDOS_MAX_PPM_INTERVAL],
-                 self.getRsdosPacketSize())
+                 self.getRsdosPacketSize(),
+                 self.attributes_s[<int>ATTR_RSDOS_MAXMIND_CONTINENT],
+                 self.attributes_s[<int>ATTR_RSDOS_MAXMIND_COUNTRY])
 
     cpdef dict asDict(self):
         cdef dict result
@@ -95,6 +98,8 @@ cdef class AvroRsdos(AvroRecord):
         if self.schemaversion == 2:
             result['first_attack_port'] = self.attributes_l[<int>ATTR_RSDOS_FIRST_ATTACK_PORT]
             result['first_target_port'] = self.attributes_l[<int>ATTR_RSDOS_FIRST_TARGET_PORT]
+            result['maxmind_continent'] = self.attributes_s[<int>ATTR_RSDOS_MAXMIND_CONTINENT]
+            result['maxmind_country'] = self.attributes_s[<int>ATTR_RSDOS_MAXMIND_COUNTRY]
 
         return result
 
@@ -194,6 +199,14 @@ cdef class AvroRsdosReader(AvroReader):
             if offinc == 0:
                 return 0
             offset += offinc
+
+        if self.schemaversion == 2:
+            for i in range(0, ATTR_RSDOS_LAST_STRING_ATTRIBUTE):
+                offinc = self.currentrec.parseString(buf[offset:],
+                        maxlen - offset, i)
+                if offinc <= 0:
+                    return 0
+                offset += offinc
 
         return self.currentrec.setRsdosPacketString(buf[offset:],
                 maxlen - offset);
