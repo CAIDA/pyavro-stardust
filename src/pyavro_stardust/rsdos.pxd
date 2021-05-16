@@ -55,6 +55,11 @@ cpdef enum RsdosAttribute:
     ATTR_RSDOS_FIRST_TARGET_PORT = 16
     ATTR_RSDOS_LAST_ATTRIBUTE = 17
 
+cpdef enum RsdosAttributeStirng:
+    ATTR_RSDOS_MAXMIND_CONTINENT = 0
+    ATTR_RSDOS_MAXMIND_COUNTRY = 1
+    ATTR_RSDOS_LAST_STRING_ATTRIBUTE = 2
+
 cdef class AvroRsdos(AvroRecord):
 
     cdef unsigned char *packetcontent
