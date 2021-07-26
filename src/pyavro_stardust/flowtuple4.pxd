@@ -50,6 +50,9 @@ cpdef enum Flowtuple4AttributeNum:
     ATTR_FT4_FIRST_SYN_LEN = 11
     ATTR_FT4_FIRST_TCP_RWIN = 12
     ATTR_FT4_ASN = 13
+    ATTR_FT4_SPOOFED_COUNT = 14
+    ATTR_FT4_MASSCAN_COUNT = 15
+    ATTR_FT4_LAST_NUMERIC = 16
 
 cpdef enum Flowtuple4AttributeStr:
     ATTR_FT4_MAXMIND_CONTINENT = 0

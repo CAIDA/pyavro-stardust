@@ -64,10 +64,8 @@ cdef class AvroRsdos(AvroRecord):
 
     cdef unsigned char *packetcontent
     cdef public unsigned int pktcontentlen
-    cdef public unsigned int schemaversion
 
     cpdef dict asDict(self)
-    cpdef void setSchemaVersion(self, const unsigned int schemaversion)
     cpdef void resetRecord(self)
     cpdef bytes getRsdosPacketString(self)
     cpdef unsigned int getRsdosPacketSize(self)
@@ -75,7 +73,6 @@ cdef class AvroRsdos(AvroRecord):
             const unsigned int maxlen)
 
 cdef class AvroRsdosReader(AvroReader):
-    cdef unsigned int schemaversion
     cdef int _parseNextRecord(self, const unsigned char[:] buf,
             const unsigned int maxlen)
 

@@ -41,7 +41,7 @@ from cpython cimport array
 @cython.final
 cdef class AvroFlowtuple4(AvroRecord):
     def __init__(self):
-        super().__init__(ATTR_FT4_ASN + 1, ATTR_FT4_LAST_STRING,
+        super().__init__(ATTR_FT4_LAST_NUMERIC, ATTR_FT4_LAST_STRING,
                 ATTR_FT4_LAST_NUM_ARRAY)
 
     def __str__(self):
@@ -87,6 +87,10 @@ cdef class AvroFlowtuple4(AvroRecord):
             "maxmind_country": self.attributes_s[<int>ATTR_FT4_MAXMIND_COUNTRY]
         }
 
+        if self.schemaversion == 2:
+            asdict["spoofed"] = self.attributes_l[<int>ATTR_FT4_SPOOFED_COUNT]
+            asdict["masscan"] = self.attributes_l[<int>ATTR_FT4_MASSCAN_COUNT]
+
         if needarrays:
             # XXX this feels like it could be faster, but not sure how
             # to improve this
@@ -106,6 +110,7 @@ cdef class AvroFlowtuple4(AvroRecord):
                 comm_ports.push_back(cv)
             asdict['common_src_ports'] = comm_ports
 
+
             pkt_sizes = self.getNumericArray(<int>ATTR_FT4_COMMON_PKT_SIZES)
             size_freqs = self.getNumericArray(<int>ATTR_FT4_COMMON_PKT_SIZE_FREQS)
             for i in range(pkt_sizes.size()):
@@ -114,6 +119,7 @@ cdef class AvroFlowtuple4(AvroRecord):
                 comm_sizes.push_back(cv)
             asdict['common_pkt_sizes'] = comm_sizes
 
+
             flags = self.getNumericArray(<int>ATTR_FT4_COMMON_TCP_FLAGS)
             flag_freqs = self.getNumericArray(<int>ATTR_FT4_COMMON_TCP_FLAG_FREQS)
             for i in range(flags.size()):
@@ -121,6 +127,7 @@ cdef class AvroFlowtuple4(AvroRecord):
                 cv.freq = flag_freqs[i]
                 comm_flags.push_back(cv)
             asdict['common_tcp_flags'] = comm_flags
+
 
         return asdict
 
@@ -143,6 +150,14 @@ cdef class AvroFlowtuple4Reader(AvroReader):
 
         self.currentrec.resetRecord()
 
+        if self.schemaversion == 0:
+            self.schemaversion = 1
+            for f in self.schemajson['fields']:
+                if "masscan_packet_cnt" == f['name']:
+                    self.schemaversion = 2
+                    break
+            self.currentrec.setSchemaVersion(self.schemaversion)
+
         for i in range(0, ATTR_FT4_FIRST_TCP_RWIN + 1):
             offinc = self.currentrec.parseNumeric(buf[offset:],
                     maxlen - offset, i)
@@ -164,11 +179,20 @@ cdef class AvroFlowtuple4Reader(AvroReader):
                 return 0
             offset += offinc
 
-        offinc = self.currentrec.parseNumeric(buf[offset:], maxlen - offset,
-                ATTR_FT4_ASN)
-        if offinc <= 0:
+        if self.schemaversion == 1:
+            maxattr = ATTR_FT4_ASN + 1
+        elif self.schemaversion == 2:
+            maxattr = ATTR_FT4_LAST_NUMERIC
+        else:
             return 0
-        offset += offinc
+
+        for i in range(ATTR_FT4_ASN, maxattr):
+            offinc = self.currentrec.parseNumeric(buf[offset:],
+                    maxlen - offset, i)
+            if offinc <= 0:
+                return 0
+            offset += offinc
+
         return 1
 
 

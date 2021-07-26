@@ -58,6 +58,7 @@ cdef parsedNumericArrayBlock read_numeric_array(const unsigned char[:] buf,
 
 cdef class AvroRecord:
 
+    cdef public unsigned int schemaversion
     cdef long *attributes_l
     cdef char **attributes_s
     cdef long **attributes_na
@@ -78,9 +79,11 @@ cdef class AvroRecord:
             const unsigned int maxlen, const int attrind)
     cpdef vector[long] getNumericArray(self, const int attrind)
     cpdef void resetRecord(self)
+    cpdef void setSchemaVersion(self, const unsigned int schemaversion)
 
 
 cdef class AvroReader:
+    cdef unsigned int schemaversion
     cdef unsigned int nextblock
     cdef unsigned int unzip_offset
     cdef fh

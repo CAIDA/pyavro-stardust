@@ -133,6 +133,7 @@ cdef class AvroRecord:
         self.stringcount = 0
         self.numcount = 0
         self.numarraycount = 0
+        self.schemaversion = 0
 
     def __init__(self, numeric, strings, numarrays):
         cdef unsigned int i
@@ -297,6 +298,9 @@ cdef class AvroRecord:
                     self.attributes_na[i] = NULL
 
 
+    cpdef void setSchemaVersion(self, const unsigned int schemaversion):
+        self.schemaversion = schemaversion
+
 cdef class AvroReader:
     def __init__(self, filepath):
         self.filepath = filepath
@@ -308,6 +312,7 @@ cdef class AvroReader:
         self.unzip_offset = 0
         self.currentrec = None
         self.schemajson = None
+        self.schemaversion = 0
 
     def _readMore(self):
         try:

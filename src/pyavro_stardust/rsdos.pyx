@@ -174,16 +174,12 @@ cdef class AvroRsdos(AvroRecord):
         self.sizeinbuf += astr.toskip + astr.strlen
         return 1
 
-    cpdef void setSchemaVersion(self, const unsigned int schemaversion):
-        self.schemaversion = schemaversion
-
 @cython.final
 cdef class AvroRsdosReader(AvroReader):
 
     def __init__(self, filepath):
         super().__init__(filepath)
         self.currentrec = AvroRsdos()
-        self.schemaversion = 0
 
     cdef int _parseNextRecord(self, const unsigned char[:] buf,
             const unsigned int maxlen):
