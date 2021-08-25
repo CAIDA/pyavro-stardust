@@ -10,11 +10,13 @@ Data formats that are currently supported are:
 
 ### Installation
 
-Dependencies:
+#### Dependencies
   * pywandio -- https://github.com/CAIDA/pywandio (note: STARDUST users should
     already have the python[3]-pywandio package installed on their VM)
-  * cython
+  * cython -- run `pip install cython`
 
+
+#### Installation command
 
 ```
 make && make install
