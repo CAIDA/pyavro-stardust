@@ -9,10 +9,10 @@ dist:
 redist: clean dist
 
 install:
-	CYTHONIZE=1 pip install .
+	CYTHONIZE=1 pip3 install .
 
 install-from-source: dist
-	pip install dist/pyavro-stardust-1.0.0.tar.gz
+	pip3 install dist/pyavro-stardust-1.0.0.tar.gz
 
 clean:
 	$(RM) -r build dist src/*.egg-info
@@ -23,5 +23,5 @@ clean:
 	#git clean -fdX
 
 uninstall:
-	pip uninstall pyavro-stardust
+	pip3 uninstall pyavro-stardust
 
