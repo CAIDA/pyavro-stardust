@@ -111,7 +111,7 @@ cdef parsedNumericArrayBlock read_numeric_array(const unsigned char[:] buf,
         arr.values = NULL
         return arr
 
-    arr.values = <long *>PyMem_Malloc(sizeof(long) * arr.blockcount)
+    arr.values = <long *>PyMem_Malloc(sizeof(long) * blockcount)
 
     for i in range(blockcount):
         skip, arrayitem = read_long(buf[arr.totalsize:], maxlen - arr.totalsize)
