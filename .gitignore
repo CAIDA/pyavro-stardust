@@ -25,3 +25,6 @@ share/python-wheels/
 MANIFEST
 
 .python-version
+
+*.cpp
+*.html
