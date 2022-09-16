@@ -46,7 +46,7 @@ cdef (unsigned int, long) read_long(const unsigned char[:] buf,
     cdef unsigned long b
     cdef unsigned long n
 
-    if maxlen == 0:
+    if maxlen == 0 or buf.size == 0:
         return 0,0
 
     b = buf[0]
