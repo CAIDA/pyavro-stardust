@@ -302,8 +302,9 @@ cdef class AvroRecord:
         self.schemaversion = schemaversion
 
 cdef class AvroReader:
-    def __init__(self, filepath):
+    def __init__(self, filepath, options=None):
         self.filepath = filepath
+        self.options = options
         self.syncmarker = None
         self.fh = None
         self.bufrin = bytearray()
@@ -397,7 +398,7 @@ cdef class AvroReader:
         saved = None
         while mode != 'fail':
             try:
-                self.fh = wandio.open(self.filepath, mode=mode)
+                self.fh = wandio.open(self.filepath, mode=mode, options=self.options)
             except ValueError as e:
                 if mode == 'rb':
                     mode = 'r'

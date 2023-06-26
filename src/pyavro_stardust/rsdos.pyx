@@ -177,8 +177,8 @@ cdef class AvroRsdos(AvroRecord):
 @cython.final
 cdef class AvroRsdosReader(AvroReader):
 
-    def __init__(self, filepath):
-        super().__init__(filepath)
+    def __init__(self, filepath, options=None):
+        super().__init__(filepath, options)
         self.currentrec = AvroRsdos()
 
     cdef int _parseNextRecord(self, const unsigned char[:] buf,
