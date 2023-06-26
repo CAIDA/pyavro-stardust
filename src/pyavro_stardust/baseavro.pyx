@@ -302,7 +302,7 @@ cdef class AvroRecord:
         self.schemaversion = schemaversion
 
 cdef class AvroReader:
-    def __init__(self, filepath, options={}):
+    def __init__(self, filepath, options=None):
         self.filepath = filepath
         self.options = options
         self.syncmarker = None
