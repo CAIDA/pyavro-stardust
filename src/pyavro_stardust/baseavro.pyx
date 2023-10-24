@@ -46,7 +46,7 @@ cdef (unsigned int, long) read_long(const unsigned char[:] buf,
     cdef unsigned long b
     cdef unsigned long n
 
-    if maxlen == 0:
+    if maxlen == 0 or buf.size == 0:
         return 0,0
 
     b = buf[0]
@@ -439,6 +439,10 @@ cdef class AvroReader:
     @cython.boundscheck(False)
     @cython.wraparound(False)
     cpdef void perAvroRecord(self, func, userarg=None):
+        if (self.fh == None):
+            print("You must call the start method before trying to read records!")
+            return
+
         cdef unsigned int offset, fullsize
         cdef unsigned int offinc
         cdef long blockcnt, blocksize
@@ -497,6 +501,70 @@ cdef class AvroReader:
 
             self.bufrin = self.bufrin[self.nextblock:]
             self.nextblock = 0
+
+    def dumpAvroRecords(self):
+        if (self.fh == None):
+            print("You must call the start method before trying to read records!")
+
+        cdef unsigned int offset, fullsize
+        cdef unsigned int offinc
+        cdef long blockcnt, blocksize
+        cdef AvroRecord nextrec
+
+        while self.syncmarker is None:
+            self._readAvroFileHeader()
+
+        while 1:
+            offset = self.nextblock
+            fullsize = len(self.bufrin) - self.nextblock
+
+            offinc, blockcnt = read_long(self.bufrin[offset:],
+                    fullsize - offset)
+            if offinc == 0:
+                if self._readMore() == 0:
+                    break
+                continue
+            offset += offinc
+            offinc, blocksize = read_long(self.bufrin[offset:],
+                    fullsize - offset)
+            if offinc == 0:
+                if self._readMore() == 0:
+                    break
+                continue
+
+            offset += offinc
+
+            content = self.bufrin[offset: offset + blocksize]
+            if len(content) < blocksize or \
+                    len(self.bufrin[offset + blocksize:]) < 16:
+                if self._readMore() == 0:
+                    break
+                continue
+
+            try:
+                self.unzipped = zlib.decompress(content, -15)
+                self.unzip_offset = 0
+            except zlib.error:
+                return
+
+            nextrec = self._getNextRecord()
+            while nextrec is not None:
+                yield nextrec
+                nextrec = self._getNextRecord()
+
+            offset += blocksize
+
+            #assert(self.bufrin[offset: offset+16] == self.syncmarker)
+
+            self.nextblock = offset + 16
+
+            if self.nextblock >= len(self.bufrin):
+                if self._readMore() == 0:
+                    break
+
+            self.bufrin = self.bufrin[self.nextblock:]
+            self.nextblock = 0
+
 
 
 
